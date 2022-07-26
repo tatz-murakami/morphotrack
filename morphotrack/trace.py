@@ -43,7 +43,7 @@ def measure_travelled_distance(array):  # Cumulative distance. Distance from poi
     return travelled_distance
 
 
-def count_inloc_outloc(loc, inloc_outloc_count=[]):# Always set inloc_outloc_count=[] in the argument to prevent a bug.
+def count_inloc_outloc(loc, inloc_outloc_count=[]):  # set inloc_outloc_count=[] in the argument to prevent a bug.
     """
     The function counts the number of the continous True and False.
     input:
@@ -169,8 +169,6 @@ class VirtualRG:
         self.trajectory.distance = measure_travelled_distance(ode_solution.y.T)
 
     def fetch_value(self, array, mask=None):
-        # if mask is None:
-        # else:
         self.trajectory.values_on_trajectory, self.trajectory.inloc = fetch_value_in_range(
             array,
             self.trajectory.ode_solution.y
