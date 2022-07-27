@@ -89,21 +89,21 @@ def measure_travelled_distance(array):  # Cumulative distance. Distance from poi
 
 
 class FieldTracker:
-    def __init__(self, model, points=None):
+    def __init__(self, model, seeds=None):
         """
         Arguments:
             model (function): the function is passed to solve_ivp
-            points (ndarray): the coordinates. Nx3 array.
+            seeds (ndarray): the coordinates. Nx3 array.
         """
         self.model = model  # model is to return vectors from coordinates.
-        self.points = points
-        # self.ode_solution = None
-        self.points_xr = xr.DataArray(points,
-                                      coords={'track': np.arange(points.shape[0]),
-                                              'space': np.arange(points.shape[-1])},
-                                      dims=['track', 'space']
-                                      )
+        self.seeds = seeds
+        self.seeds_xr = xr.DataArray(seeds,
+                                     coords={'track': np.arange(seeds.shape[0]),
+                                             'space': np.arange(seeds.shape[-1])},
+                                     dims=['track', 'space']
+                                     )
         self.t_positions = None
+        self.t_flow = None
 
     def solve_ode(self, t_start, t_end):
         """
@@ -111,6 +111,7 @@ class FieldTracker:
             t_start (int):
             t_end (int):
         return:
+            # xarray DataArray: index of tracks, time, and space
         """
 
         @ray.remote
@@ -125,8 +126,8 @@ class FieldTracker:
             return ode_solution
 
         ode_sols = []
-        for point in self.points:
-            ode_sols.append(par_solve_ode.remote(point))
+        for seed in self.seeds:
+            ode_sols.append(par_solve_ode.remote(seed))
         ode_sols = ray.get(ode_sols)
 
         # return ode_sols
@@ -146,9 +147,66 @@ class FieldTracker:
 
         self.t_positions = t_position
 
-    def continuity(self, binary_img):
+    # def continuity(self, binary_img):
+    #     """
+    #     Arguments:
+    #         binary_img (ndarray): the binary image
+    #     return:
+    #     """
+    def apply_function_to_position(self, func, *args, **kwargs):
         """
-        Arguments:
-            binary_img (ndarray): the binary image
-        return:
+        Arguments
+            func (function): function returns flow from coordinates
+        Return:
+            xarray DataArray: index of tracks, time, and space
         """
+        values = self.t_positions.copy()
+        values = values.stack(pos=['time', 'track'])
+        selection = ~np.isnan(values.data.T).any(axis=1)
+        values_selected = values.isel(pos=selection)
+        new_values = func(values_selected.data.T, *args, **kwargs)
+
+        if new_values.ndim < 2:
+            new_values = new_values[:, np.newaxis]
+
+        new_values = xr.DataArray(new_values,
+                                  coords={'pos': values_selected.coords['pos'],
+                                          'space': np.arange(new_values.shape[-1])},
+                                  dims=['pos', 'space']
+                                  )
+
+        return new_values.unstack().T
+
+
+    def apply_function_to_position_with_array(self, func, arr2, *args, **kwargs):
+        """
+        Arguments
+            func (function): function returns flow from coordinates
+            arrs (xarray): the array with shared coordinates with position
+        Return:
+            xarray DataArray: index of tracks, time, and space
+        """
+        values = self.t_positions.copy()
+        values = values.stack(pos=['time', 'track'])
+        selection = ~np.isnan(values.data.T).any(axis=1)
+
+        values2 = arr2.stack(pos=['time', 'track'])
+        selection2 = ~np.isnan(values2.data.T).any(axis=1)
+
+        selection = selection & selection2
+
+        values_selected = values.isel(pos=selection)
+        values2_selected = values2.isel(pos=selection)
+
+        new_values = func(values_selected.data.T, values2_selected.data.T, *args, **kwargs)
+
+        if new_values.ndim < 2:
+            new_values = new_values[:, np.newaxis]
+
+        new_values = xr.DataArray(new_values,
+                                  coords={'pos': values_selected.coords['pos'],
+                                          'space': np.arange(new_values.shape[-1])},
+                                  dims=['pos', 'space']
+                                  )
+
+        return new_values.unstack().T
