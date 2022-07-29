@@ -4,6 +4,25 @@ import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
 import ray
 import xarray as xr
+import morphotrack.points
+from sklearn.metrics import mutual_info_score
+
+
+def mutual_information(s1, s2, bins=10):
+    """
+    #https://stackoverflow.com/questions/20491028/optimal-way-to-compute-pairwise-mutual-information-using-numpy
+    """
+    hist = np.histogram2d(s1, s2, bins)[0]
+    mi = mutual_info_score(None,None,contingency=hist)
+    return mi
+
+
+def cosine_similarity(a1, a2):
+    return np.dot(a1, a2) / (np.linalg.norm(a1)*np.linalg.norm(a2))
+
+
+def moving_average(x, w=10):
+    return np.convolve(x, np.ones(w), 'same') / w
 
 
 def polynomial_eq(w, coeff, ij_powers):
@@ -96,14 +115,23 @@ class FieldTracker:
             seeds (ndarray): the coordinates. Nx3 array.
         """
         self.model = model  # model is to return vectors from coordinates.
-        self.seeds = seeds
-        self.seeds_xr = xr.DataArray(seeds,
-                                     coords={'track': np.arange(seeds.shape[0]),
-                                             'space': np.arange(seeds.shape[-1])},
+
+        # sort seeds using isomap
+        isomap1d = morphotrack.points.isomap_wrapper(seeds, n_components=1)
+        sort_args = np.argsort(isomap1d, axis=0)
+
+        self.sort_args = sort_args
+
+        self.seeds = seeds[sort_args, :]
+        self.seeds_xr = xr.DataArray(self.seeds,
+                                     coords={'track': np.arange(self.seeds.shape[0]),
+                                             'space': np.arange(self.seeds.shape[-1])},
                                      dims=['track', 'space']
                                      )
+
         self.t_positions = None
         self.t_flow = None
+        self.sort_args = None
 
     def solve_ode(self, t_start, t_end):
         """
@@ -175,7 +203,7 @@ class FieldTracker:
                                   dims=['pos', 'space']
                                   )
 
-        return new_values.unstack().T
+        return new_values.unstack().T.squeeze()
 
 
     def apply_function_to_position_with_array(self, func, arr2, *args, **kwargs):
@@ -209,4 +237,12 @@ class FieldTracker:
                                   dims=['pos', 'space']
                                   )
 
-        return new_values.unstack().T
+        return new_values.unstack().T.squeeze()
+
+    # def sort_seeds_in_1d(self, **kwargs):
+    #     isomap1d = morphotrack.points.isomap_wrapper(self.seeds, n_components=1, **kwargs)
+    #     sort_args = np.argsort(isomap1d, axis=0)
+    #
+    #     self.sort_args = sort_args
+    #
+    #     return sort_args

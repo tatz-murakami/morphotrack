@@ -2,6 +2,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.preprocessing import normalize
 import numpy as np
 from scipy import spatial
+from sklearn import manifold
 
 
 def get_norm_flow_on_coordinate(degree, clf):
@@ -125,4 +126,77 @@ def pick_median_nearest_point(array, k, median_shift=False):
         _, index = kd_tree.query(median, k)
 
     return index
+
+
+def isomap_wrapper(coordinate, n_neighbors=20, n_components=1, **kwargs):
+    """
+    """
+    iso = manifold.Isomap(n_neighbors=n_neighbors, n_components=n_components, n_jobs=-1, **kwargs)
+    iso.fit(coordinate)
+    transformed_coordinate = iso.transform(coordinate).squeeze()
+
+    return transformed_coordinate
+
+
+def position_on_circunference(radius, n_points=8, dim=3):
+    """
+    n_points control the number of the points on circunference.
+    """
+    theta = np.arange(0, 2 * np.pi, 2 * np.pi / n_points)
+    x = radius * np.cos(theta)
+    y = radius * np.sin(theta)
+
+    position = np.stack((y, x))
+    if dim == 3:
+        position = np.vstack((np.zeros_like(x), position))
+
+    return position.T
+
+
+def get_orthonogals(k, x=np.asarray([0.0, 1.0, 0.0])):
+    """
+    k: 2darray. nx3
+    Assume input vector k to be normalized
+    """
+    x = x - k.dot(x)[:, None] * k  # make x orthogonal to k
+    x = x / np.linalg.norm(x, axis=1)[:, None]  # normalize it
+
+    y = np.cross(k, x)
+
+    return k, x, y
+
+
+def rotate_with_normals(coord, vectors):
+    """
+    rotate agianst normal. (0,0,0) is used as the origin of the rotation
+        coord: 2darray. ix3. coordinates to be rotated.
+        vectors: 2darray. jx3. j is a number of the normal vectors.
+    return
+        points: 3darray. ixjx3. rotated position of coordinates for each normal vector.
+    """
+    M = get_orthonogals(vectors)
+
+    points = np.einsum('ij,jkl->ikl', coord, np.asarray(M)) # [measurement point, position in line, xyz coordinate]
+
+    return points
+
+
+def get_local_flux(positions, vector_field, radius, dim=3, n_points=8):
+    """
+    positions (ndarray):
+    vector_field (function): return vector for each position
+    radius (int):
+    """
+    flow = vector_field(positions)
+    # generate measuring points. circles around position
+    points_on_cicle = position_on_circunference(radius, n_points=n_points, dim=dim)
+    rotated_points = rotate_with_normals(points_on_cicle, flow)
+    measuring_point = rotated_points + positions
+
+    # calculate local flux
+    temp = vector_field(measuring_point.reshape(-1, measuring_point.shape[-1]))
+    vectors_on_points = temp.reshape(measuring_point.shape)  # get vectors on measuring points
+    local_flux = np.einsum('ijk,ijk->j', vectors_on_points, rotated_points / radius) / points_on_cicle.shape[0]
+
+    return local_flux
 
