@@ -130,8 +130,6 @@ class FieldTracker:
                                      )
 
         self.t_positions = None
-        self.t_flow = None
-        self.sort_args = None
 
     def solve_ode(self, t_start, t_end):
         """
