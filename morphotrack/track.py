@@ -1,11 +1,11 @@
 from scipy.integrate import solve_ivp
+from scipy import spatial
 import numpy as np
-import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import mutual_info_score
 import ray
 import xarray as xr
 import morphotrack.points
-from sklearn.metrics import mutual_info_score
 
 
 def mutual_information(s1, s2, bins=10):
@@ -173,12 +173,6 @@ class FieldTracker:
 
         self.t_positions = t_position
 
-    # def continuity(self, binary_img):
-    #     """
-    #     Arguments:
-    #         binary_img (ndarray): the binary image
-    #     return:
-    #     """
     def apply_function_to_position(self, func, *args, **kwargs):
         """
         Arguments
@@ -202,7 +196,6 @@ class FieldTracker:
                                   )
 
         return new_values.unstack().T.squeeze()
-
 
     def apply_function_to_position_with_array(self, func, arr2, *args, **kwargs):
         """
@@ -237,10 +230,63 @@ class FieldTracker:
 
         return new_values.unstack().T.squeeze()
 
-    # def sort_seeds_in_1d(self, **kwargs):
-    #     isomap1d = morphotrack.points.isomap_wrapper(self.seeds, n_components=1, **kwargs)
-    #     sort_args = np.argsort(isomap1d, axis=0)
-    #
-    #     self.sort_args = sort_args
-    #
-    #     return sort_args
+    def count_around_position_in_disk_kernel(self, coord, half_thickness, radius, flow=None, fillna=True):
+        """
+        Arguments
+            coord (ndarray): the positions of points to be counted
+            half_thickness (float): the half thickness of the disk kernel
+            radius (float): the radius of the disk kernel
+            flow (ndarray): orientation of the disk kernel at each point
+        Return:
+            ndarray:
+        """
+
+        def count_around_position(coords, half_thickness, radius):
+            coords_tree = spatial.KDTree(coords)
+
+            def f(arr1, arr2):
+                a, _, _ = morphotrack.points.count_around_position(arr1, arr2, coords_tree, half_thickness, radius)
+                return a
+
+            return f
+
+        def norm_1d(vector):
+            return vector / np.linalg.norm(vector)
+
+        if flow is None:
+            flow = self.t_positions.copy()
+            flow_temp = flow.diff(dim='time')
+
+            flow.loc[dict(time=slice(1, 500))] = flow_temp
+            flow.loc[dict(time=0)] = flow.sel(time=1)
+            # normalize flow
+            flow = xr.apply_ufunc(
+                norm_1d,
+                flow,
+                input_core_dims=[["space"]],
+                output_core_dims=[["space"]],
+                vectorize=True,
+            ) # xr.apply_ufunc may be slow in this usage.
+
+        kernel_counts = self.apply_function_to_position_with_array(count_around_position(coord, half_thickness, radius), flow)
+        if fillna:
+            kernel_counts = kernel_counts.fillna(0)
+
+        return kernel_counts
+
+    def fetch_value_in_position(self, arr):
+        """
+        Arguments
+            arr (ndarray): array with values.
+        Return
+            ndarray:
+        """
+
+        def fetch_value_in_array(array):
+            def f(index):
+                a = morphotrack.track.fetch_value_in_range(array, index, return_inloc=False)
+                return a
+
+            return f
+
+        return self.apply_function_to_position(fetch_value_in_array(arr))

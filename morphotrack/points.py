@@ -1,11 +1,13 @@
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.preprocessing import normalize
+from sklearn.preprocessing import PolynomialFeatures, normalize, StandardScaler
+from sklearn.cluster import KMeans
+from sklearn import manifold
 import numpy as np
 from scipy import spatial
-from sklearn import manifold
+import alphashape
+import networkx as nx
 
 
-def get_norm_flow_on_coordinate(degree, clf):
+def model_to_get_flow_func(degree, clf):
     """
     The function returns the function to get normalized flow on given coordinates.
     Arguments:
@@ -32,6 +34,9 @@ def isin_thickness(half_thickness, position, flow, neighbors):
         neighbors (ndarray): Nx3 array
     return: neighbors in thickness, boolean for indexing
     """
+    # normalize flow
+
+    # judge isin from dot product
     cond1 = np.dot(neighbors - (position + flow * half_thickness), flow) < 0
     cond2 = np.dot(neighbors - (position - flow * half_thickness), flow) > 0
 
@@ -199,4 +204,53 @@ def get_local_flux(positions, vector_field, radius, dim=3, n_points=8):
     local_flux = np.einsum('ijk,ijk->j', vectors_on_points, rotated_points / radius) / points_on_cicle.shape[0]
 
     return local_flux
+
+
+def face_selection(seeds, normals, flow_on_seeds, n_clusters=6, cluster_selection='min'):
+    """
+    Select the seeds on the surface of interest.
+    """
+    # Calculate dot product of normal vector and flows
+    seeds_dot_product = np.sum(normals*flow_on_seeds, axis=1) # This will return the dot product.
+
+    # Start clusterings
+    features = np.concatenate((seeds,normals,seeds_dot_product[...,np.newaxis]),axis=1) # Make feature matrix, xyz coordinates + normal vectors + dot products
+    scaler = StandardScaler().fit(features)
+    kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(scaler.transform(features)) # Clustering
+
+    # Extract seeds in the cluster of interest.
+    if cluster_selection=='min':
+        cluster_of_interest = np.argmin(kmeans.cluster_centers_[:,-1]) # Minimum in this case. Could be maximum depending on the orientation of the tissue or guide vector.
+    elif cluster_selection=='max':
+        cluster_of_interest = np.argmax(kmeans.cluster_centers_[:,-1])
+    else:
+        print("error")
+        return None
+
+    return kmeans.labels_==cluster_of_interest
+
+
+def cloud_to_alphashape(coord, downsample=1, alpha=0.1, return_normal=True):
+    """
+    :param coord (ndarray):
+    :param downsample (int):
+    :param alpha (float):
+    :param return_normal (bool):
+    :return ver (ndarray): vertices of alpha shape
+    :return nor (ndarray): normal vectors on the vertices of the alpha shape
+    """
+    alpha = alphashape.alphashape(coord[::downsample, :], alpha)
+
+    # use network to select the largest point clouds
+    groups = nx.connected_components(alpha.vertex_adjacency_graph)
+    groups = list(groups)
+    # select the largest point clouds
+    idx = groups[np.asarray([len(c) for c in groups]).argmax()]
+    ver = np.asarray(alpha.vertices[tuple(idx), :])
+    nor = np.asarray(alpha.vertex_normals[tuple(idx), :])
+
+    if return_normal:
+        return ver, nor
+    else:
+        return ver
 

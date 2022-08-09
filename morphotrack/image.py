@@ -1,0 +1,68 @@
+import numpy as np
+# import xarray as xr
+
+
+def fill_value_in_range(array, index_array, value=255.):
+    """
+    The function fill the value in a given array using indexing array.
+    The indexing array can have the index outside of the given array. The position indicated by index array is filled with the value.
+    The outside index will be disregarded.
+    array: numpy array to be filled with value.
+    index_array: numpy array for indexing. Each column has the position of the array to be filled.
+    value: value to be filled. int or numpy array with the size of column number in index_array.
+    """
+    dim = array.ndim
+    # Select indices within the range of the array.
+    column_to_select = np.all(
+        [np.all([index_array[i, :] >= 0 for i in range(dim)], axis=0),
+         np.all([index_array[i, :] < (array.shape[i] - 0.5) for i in range(dim)], axis=0)],
+        axis=0
+    )
+    select_idx = index_array[:, column_to_select]
+    select_idx = np.around(select_idx).astype(int)
+
+    # Fill the value in the array.
+    if isinstance(value, np.ndarray):
+        array[tuple([select_idx[i, :] for i in range(dim)])] = value[column_to_select]
+    else:
+        array[tuple([select_idx[i, :] for i in range(dim)])] = value
+
+    return array
+
+
+def visualize_in_original_space(arr_pos, arr_val, shape=None):
+    """
+    Arguments
+        arr_pos (xarray): the positional array. 2/3xNxM. space axis can be specified
+        arr_val (xarray): the value array with shared coordinates with position
+    Return:
+        ndarray: the image filled with the value of arr_val in the position indicated in arr_pos
+    """
+    positions = arr_pos.copy()
+    positions = positions.fillna(-1)
+    positions = positions.stack(pos=['time', 'track'])
+    shape_axis = positions.dims.index('space')
+
+    values = arr_val.copy()
+    values = values.stack(pos=['time', 'track'])
+
+    if shape is not None:
+        img = np.zeros(shape, dtype=arr_val.dtype)
+    else:
+        shape = np.ceil(positions.data.max(1 - shape_axis)).astype(int)
+        img = np.zeros(shape, dtype=arr_val.dtype)
+
+    if shape_axis == 1:
+        positions = positions.T
+
+    # clipping
+    positions = positions.data
+    positions[positions <= 0] = 0
+    for i, m in enumerate(shape):
+        positions[i, positions[i, :] >= m - 1] = m - 1
+    positions = positions.astype(int)
+
+    img[tuple(positions)] = values.data
+
+    return img
+

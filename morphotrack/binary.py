@@ -36,4 +36,3 @@ def extract_largest_cluster(coord):
 
     return selected_coord
 
-
