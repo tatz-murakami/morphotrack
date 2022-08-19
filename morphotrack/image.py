@@ -1,4 +1,6 @@
 import numpy as np
+from vispy import color
+from sklearn.preprocessing import MinMaxScaler
 # import xarray as xr
 
 
@@ -65,4 +67,22 @@ def visualize_in_original_space(arr_pos, arr_val, shape=None):
     img[tuple(positions)] = values.data
 
     return img
+
+
+def min_max_scaling(arr1d):
+    """
+    """
+    return MinMaxScaler().fit(arr1d[:,np.newaxis]).transform(arr1d[:,np.newaxis]).squeeze()
+
+
+def vector_color_mapping(arr1d, colormap='plasma',scaling=True, low_p=0, high_p=100):
+    """
+    """
+    if scaling:
+        low = np.percentile(arr1d, low_p)
+        high = np.percentile(arr1d, high_p)
+        scaled_arr1d = (arr1d-low)/(high-low)
+    else:
+        scaled_arr1d = arr1d
+    return color.get_colormap(colormap).map(scaled_arr1d)
 

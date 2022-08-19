@@ -8,6 +8,7 @@ import xarray as xr
 import morphotrack.points
 
 
+
 def mutual_information(s1, s2, bins=10):
     """
     #https://stackoverflow.com/questions/20491028/optimal-way-to-compute-pairwise-mutual-information-using-numpy
@@ -257,8 +258,8 @@ class FieldTracker:
             flow = self.t_positions.copy()
             flow_temp = flow.diff(dim='time')
 
-            flow.loc[dict(time=slice(1, 500))] = flow_temp
-            flow.loc[dict(time=0)] = flow.sel(time=1)
+            flow[dict(time=slice(1, None))] = flow_temp
+            flow[dict(time=0)] = flow.sel(time=1)
             # normalize flow
             flow = xr.apply_ufunc(
                 norm_1d,

@@ -160,3 +160,55 @@ def composite_displacement(disp1st, disp2nd):
     comp_disp = positional_mapping(disp1st, disp2nd)
     return comp_disp
 
+
+def warp_1d(arr, arg):
+    """
+    Interpolate values in arr using arg.
+    Arguments
+        arr (1darray):
+        arg (1darray):
+    Return
+        arr_interp (1darray):
+    """
+    f = interpolate.interp1d(np.arange(arr.size), arr, fill_value='extrapolate')
+    arr_interp = f(arg)
+
+    return arr_interp
+
+
+def adjust_edge(arr1, arr2):
+    """
+    Return arguments to move arr2 to arr1.
+    Arguments
+        arr1 (1darray):
+        arr2 (1darray):
+    Return
+        arr2_warped (1darray):
+        args (1darray):
+    """
+    pos1 = find_nonzero_start_end_1d(arr1)
+    pos2 = find_nonzero_start_end_1d(arr2)
+    size = arr2.size
+
+    args = get_warp_args_1d(pos1, pos2, size)
+    arr2_warped = warp_1d(arr2, args)
+
+    return arr2_warped, args
+
+
+def composite_displacement_1d(arg1, arg2):
+    """
+    Interpolate values in arr using arg.
+    Arguments
+        arg1 (1darray): arguments for the first warp
+        arg2 (1darray): arguments for the second warp
+    Return
+        arg_interp (1darray):
+    """
+    f = interpolate.interp1d(np.arange(arg1.size), arg1, fill_value='extrapolate')
+    arg_composite = f(arg2)
+
+    return arg_composite
+
+
+

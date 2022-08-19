@@ -1,4 +1,4 @@
-from tslearn.metrics import soft_dtw_alignment
+# from tslearn.metrics import soft_dtw_alignment
 import numpy as np
 from tqdm import tqdm
 

@@ -5,9 +5,11 @@ import numpy as np
 from scipy import spatial
 import alphashape
 import networkx as nx
+import xarray as xr
+import pandas as pd
 
 
-def model_to_get_flow_func(degree, clf):
+def model_to_norm_flow_func(degree, clf):
     """
     The function returns the function to get normalized flow on given coordinates.
     Arguments:
@@ -69,8 +71,10 @@ def count_around_position(positions, flow, coords_tree, half_thickness, radius=2
 
     # convert index to the xyz coordinate. to each array element (i.e. list), convert to coord.
     for i, idx in enumerate(indices.tolist()):
+        p = positions[i, :]
+        f = flow[i, :]
         neighbor_coords = coords[idx, :]
-        in_thickness, subidx = isin_thickness(half_thickness, positions[i, :], flow[i, :], neighbor_coords)
+        in_thickness, subidx = isin_thickness(half_thickness, p, f, neighbor_coords)
         coords_in_thickness.append(in_thickness)
         column_sum.append(in_thickness.size)
         idx_in_thickness.append(np.asarray(idx)[subidx])
@@ -143,9 +147,9 @@ def isomap_wrapper(coordinate, n_neighbors=20, n_components=1, **kwargs):
     return transformed_coordinate
 
 
-def position_on_circunference(radius, n_points=8, dim=3):
+def position_on_circumference(radius, n_points=8, dim=3):
     """
-    n_points control the number of the points on circunference.
+    n_points control the number of the points on circumference.
     """
     theta = np.arange(0, 2 * np.pi, 2 * np.pi / n_points)
     x = radius * np.cos(theta)
@@ -158,7 +162,7 @@ def position_on_circunference(radius, n_points=8, dim=3):
     return position.T
 
 
-def get_orthonogals(k, x=np.asarray([0.0, 1.0, 0.0])):
+def get_orthogonals(k, x=np.asarray([0.0, 1.0, 0.0])):
     """
     k: 2darray. nx3
     Assume input vector k to be normalized
@@ -179,7 +183,7 @@ def rotate_with_normals(coord, vectors):
     return
         points: 3darray. ixjx3. rotated position of coordinates for each normal vector.
     """
-    M = get_orthonogals(vectors)
+    M = get_orthogonals(vectors)
 
     points = np.einsum('ij,jkl->ikl', coord, np.asarray(M)) # [measurement point, position in line, xyz coordinate]
 
@@ -192,16 +196,27 @@ def get_local_flux(positions, vector_field, radius, dim=3, n_points=8):
     vector_field (function): return vector for each position
     radius (int):
     """
-    flow = vector_field(positions)
-    # generate measuring points. circles around position
-    points_on_cicle = position_on_circunference(radius, n_points=n_points, dim=dim)
-    rotated_points = rotate_with_normals(points_on_cicle, flow)
-    measuring_point = rotated_points + positions
+    # handling of nan
+    positions_df = pd.DataFrame(positions)
+    cond = positions_df.isna().any(axis=1)
+    flux_pd = pd.Series(np.nan, cond.index)
+    positions = positions_df.dropna().values
 
-    # calculate local flux
-    temp = vector_field(measuring_point.reshape(-1, measuring_point.shape[-1]))
-    vectors_on_points = temp.reshape(measuring_point.shape)  # get vectors on measuring points
-    local_flux = np.einsum('ijk,ijk->j', vectors_on_points, rotated_points / radius) / points_on_cicle.shape[0]
+    if positions.shape[0] != 0:
+        flow = vector_field(positions)
+        # generate measuring points. circles around position
+        points_on_circle = position_on_circumference(radius, n_points=n_points, dim=dim)
+        rotated_points = rotate_with_normals(points_on_circle, flow)
+        measuring_point = rotated_points + positions
+
+        # calculate local flux
+        temp = vector_field(measuring_point.reshape(-1, measuring_point.shape[-1]))
+        vectors_on_points = temp.reshape(measuring_point.shape)  # get vectors on measuring points
+        local_flux = np.einsum('ijk,ijk->j', vectors_on_points, rotated_points / radius) / points_on_circle.shape[0]
+
+        # to move back dropped positions
+        flux_pd[~cond] = local_flux
+    local_flux = flux_pd.values
 
     return local_flux
 
@@ -253,4 +268,83 @@ def cloud_to_alphashape(coord, downsample=1, alpha=0.1, return_normal=True):
         return ver, nor
     else:
         return ver
+
+
+def count_around_position_in_disk_kernel(position, coord, half_thickness, radius, flow=None, fillna=True):
+    """
+    Arguments
+        coord (ndarray): the positions of points to be counted
+        half_thickness (float): the half thickness of the disk kernel
+        radius (float): the radius of the disk kernel
+        flow (ndarray): orientation of the disk kernel at each point
+    Return:
+        ndarray:
+    """
+
+    def local_count_around_position(coords, half_thickness, radius):
+        coords_tree = spatial.KDTree(coords)
+
+        def f(arr1, arr2):
+            a, _, _ = count_around_position(arr1, arr2, coords_tree, half_thickness, radius)
+            return a
+
+        return f
+
+    def norm_1d(vector):
+        return vector / np.linalg.norm(vector)
+
+    if flow is None:
+        flow = position.copy()
+        flow_temp = flow.diff(dim='time')
+
+        flow.loc[dict(time=slice(1, 500))] = flow_temp
+        flow.loc[dict(time=0)] = flow.sel(time=1)
+        # normalize flow
+        flow = xr.apply_ufunc(
+            norm_1d,
+            flow,
+            input_core_dims=[["space"]],
+            output_core_dims=[["space"]],
+            vectorize=True,
+        ) # xr.apply_ufunc may be slow in this usage.
+
+    kernel_counts = apply_function_to_array_with_array(local_count_around_position(coord, half_thickness, radius), position, flow)
+    if fillna:
+        kernel_counts = kernel_counts.fillna(0)
+
+    return kernel_counts
+
+
+def apply_function_to_array_with_array(func, arr1, arr2, *args, **kwargs):
+    """
+    Arguments
+        func (function): function returns flow from coordinates
+        arrs (xarray): the array with shared coordinates with position
+    Return:
+        xarray DataArray: index of tracks, time, and space
+    """
+    values = arr1.copy()
+    values = values.stack(pos=['time', 'track'])
+    selection = ~np.isnan(values.data.T).any(axis=1)
+
+    values2 = arr2.stack(pos=['time', 'track'])
+    selection2 = ~np.isnan(values2.data.T).any(axis=1)
+
+    selection = selection & selection2
+
+    values_selected = values.isel(pos=selection)
+    values2_selected = values2.isel(pos=selection)
+
+    new_values = func(values_selected.data.T, values2_selected.data.T, *args, **kwargs)
+
+    if new_values.ndim < 2:
+        new_values = new_values[:, np.newaxis]
+
+    new_values = xr.DataArray(new_values,
+                              coords={'pos': values_selected.coords['pos'],
+                                      'space': np.arange(new_values.shape[-1])},
+                              dims=['pos', 'space']
+                              )
+
+    return new_values.unstack().T.squeeze()
 
