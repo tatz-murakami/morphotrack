@@ -7,8 +7,28 @@ Relevant paper:
 ### Software prerequisites 
 
 Tested on Ubuntu 20.04 LST with the following versions of software.
-- Cmake 2.8.12
-- GNU Compiler Collection 4.8.5
-- Python 3.6.4
-- CUDA Toolkit 9.0
-- ANTs 2.1.0
+- Cmake 3.21.3
+- Python 3.8.12
+- CUDA Toolkit 11.6
+- [deform](https://github.com/simeks/deform)
+- ISPC 1.16.1
+
+### Source data prerequisites 
+
+1. 10 micrometer voxel nuclei and blood vessel (stained with anti-alpha-smooth-muscle actin antibody)
+2. binary mask for the tissue, the white matter and the layer 1
+3. the cellular coordinates in 10 micrometer unit
+
+For 2, use manual/automated segmentation tool such as [labkit](https://imagej.net/plugins/labkit/).
+
+For 3, CNN-based segmentation tools (e.g. [cellpose](https://github.com/MouseLand/cellpose) or [stardist](https://github.com/stardist/stardist)) show high performance but not limited to them. 
+
+
+### Installing python packages
+```
+pip install -r requirements.txt
+```
+
+
+## Tutorials
+See the ipython notebooks.
