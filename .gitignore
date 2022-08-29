@@ -132,3 +132,4 @@ dmypy.json
 # misc
 *.egg-info
 data
+.idea/
