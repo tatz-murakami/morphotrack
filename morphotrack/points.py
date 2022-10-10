@@ -213,6 +213,8 @@ def get_local_flux(positions, vector_field, radius, dim=3, n_points=8):
         temp = vector_field(measuring_point.reshape(-1, measuring_point.shape[-1]))
         vectors_on_points = temp.reshape(measuring_point.shape)  # get vectors on measuring points
         local_flux = np.einsum('ijk,ijk->j', vectors_on_points, rotated_points / radius) / points_on_circle.shape[0]
+        # the correct should be 
+        # local_flux = np.einsum('ijk,ijk->j', vectors_on_points, rotated_points) * 2*pi*radius / points_on_circle.shape[0]
 
         # to move back dropped positions
         flux_pd[~cond] = local_flux
