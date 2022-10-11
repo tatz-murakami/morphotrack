@@ -7,6 +7,7 @@ import alphashape
 import networkx as nx
 import xarray as xr
 import pandas as pd
+import morphotrack.track
 
 
 def model_to_norm_flow_func(degree, clf):
@@ -315,6 +316,45 @@ def count_around_position_in_disk_kernel(position, coord, half_thickness, radius
         kernel_counts = kernel_counts.fillna(0)
 
     return kernel_counts
+
+
+def fetch_value_in_position(xarr, arr):
+    """
+
+    """
+    def fetch_value_in_array(array):
+        def f(index):
+            a = morphotrack.track.fetch_value_in_range(array, index, return_inloc=False)
+            return a
+
+        return f
+
+    return apply_function_to_position(fetch_value_in_array(arr), xarr)
+
+
+def apply_function_to_position(func, arr1, *args, **kwargs):
+    """
+    Arguments
+        func (function): function returns flow from coordinates
+    Return:
+        xarray DataArray: index of tracks, time, and space
+    """
+    values = arr1.copy()
+    values = values.stack(pos=['time', 'track'])
+    selection = ~np.isnan(values.data.T).any(axis=1)
+    values_selected = values.isel(pos=selection)
+    new_values = func(values_selected.data.T, *args, **kwargs)
+
+    if new_values.ndim < 2:
+        new_values = new_values[:, np.newaxis]
+
+    new_values = xr.DataArray(new_values,
+                              coords={'pos': values_selected.coords['pos'],
+                                      'space': np.arange(new_values.shape[-1])},
+                              dims=['pos', 'space']
+                              )
+
+    return new_values.unstack().T.squeeze()
 
 
 def apply_function_to_array_with_array(func, arr1, arr2, *args, **kwargs):

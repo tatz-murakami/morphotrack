@@ -63,7 +63,7 @@ def polynomial_vectorfield_generator(reg):
     return polynomial_vectorfield
 
 
-def fetch_value_in_range(array, index_array, return_inloc=True):
+def fetch_value_in_range(array, index_array, return_inloc=False):
     """
     The function fetch the value in a given array using indexing array.
     The indexing array can have the index outside of the given array. The outside index will be ignored.
