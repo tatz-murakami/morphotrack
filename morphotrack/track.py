@@ -26,32 +26,38 @@ def moving_average(x, w=10):
     return np.convolve(x, np.ones(w), 'same') / w
 
 
-def polynomial_eq(w, coeff, ij_powers):
-    x0, x1, x2 = w
+def polynomial_eq(y, coeff, ij_powers, intercept):
+    x0, x1, x2 = y
     return sum(
-        (b * (x0 ** ij_powers[i, 0]) * (x1 ** ij_powers[i, 1]) * (x2 ** ij_powers[i, 2]) for i, b in enumerate(coeff)))
+        (b * (x0 ** ij_powers[i, 0]) * (x1 ** ij_powers[i, 1]) * (x2 ** ij_powers[i, 2]) for i, b in enumerate(coeff))
+    ) + intercept
 
 
-def polynomial_vectorfield_generator(coeff, degree):
+def polynomial_vectorfield_generator(reg):
     """
     Arguments:
-        coeff : coefficient of the polynomial fitting
-        degree: the degree of the polynomial fitting
+        reg : scikit-learn Linear regression object
     Return:
         function: ready to use for scipy solve ivp
     """
+    coeff = reg.coef_; degree = reg.degree
     poly = PolynomialFeatures(degree=degree)
     poly.fit(np.ones((1, coeff.shape[0])))  # this is just to get poly.powers_
     ij_powers = poly.powers_
+    intercept = reg.intercept_
+    if not isinstance(intercept, (np.ndarray, np.generic)):
+        intercept = np.zeros(coeff.shape[0])
 
-    def polynomial_vectorfield(t, w):
-        x0, x1, x2 = w
+    def polynomial_vectorfield(t, y):
+        # x0, x1, x2 = w
         # Create f = (x0', x1', x2')
-        f = [
-            polynomial_eq(w, list(coeff[0]), ij_powers),
-            polynomial_eq(w, list(coeff[1]), ij_powers),
-            polynomial_eq(w, list(coeff[2]), ij_powers)
-        ]
+        # f = [
+        #     polynomial_eq(y, list(coeff[0]), ij_powers, intercept[0]),
+        #     polynomial_eq(y, list(coeff[1]), ij_powers, intercept[1]),
+        #     polynomial_eq(y, list(coeff[2]), ij_powers, intercept[2])
+        # ]
+        f = [polynomial_eq(y, list(coeff[i]), ij_powers, intercept[i]) for i in range(coeff.shape[0])]
+
         return f
 
     return polynomial_vectorfield
