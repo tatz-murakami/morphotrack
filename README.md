@@ -13,22 +13,6 @@ Tested on Ubuntu 20.04 LST with the following versions of software.
 - [deform](https://github.com/simeks/deform)
 - ISPC 1.16.1
 
-### Source data prerequisites 
+### Under active development
 
-1. 10 micrometer voxel nuclei and blood vessel (stained with anti-alpha-smooth-muscle actin antibody)
-2. binary mask for the tissue, the white matter and the layer 1
-3. the cellular coordinates in 10 micrometer unit
-
-For 2, use manual/automated segmentation tool such as [labkit](https://imagej.net/plugins/labkit/).
-
-For 3, CNN-based segmentation tools (e.g. [cellpose](https://github.com/MouseLand/cellpose) or [stardist](https://github.com/stardist/stardist)) show high performance but not limited to them. 
-
-
-### Installing python packages
-```
-pip install -r requirements.txt
-```
-
-
-## Tutorials
-See the ipython notebooks.
+New feature will be differentiable displacements field
