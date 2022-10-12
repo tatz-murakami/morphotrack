@@ -237,6 +237,19 @@ def polynomial_fitting(position, values, degree=5):
     return reg
 
 
+def wrap_prediction(reg, position):
+    """
+    Arguments:
+        reg: linear regression model
+        position (ndarray)
+    """
+    poly = PolynomialFeatures(degree=reg.degree)
+    idx_ = poly.fit_transform(position)
+
+    return reg.predict(idx_)
+
+
+
 def flow_to_normflow(reg):
     """
     The function returns the function to get normalized flow on given coordinates.
