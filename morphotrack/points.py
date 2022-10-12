@@ -10,24 +10,6 @@ import pandas as pd
 import morphotrack.track
 
 
-def model_to_norm_flow_func(degree, clf):
-    """
-    The function returns the function to get normalized flow on given coordinates.
-    Arguments:
-        degree (int): the degree of polynomial
-        clf (linear_model.LinearRegression): the polynomial model
-    Returns:
-        function: function to get flow on given coordinates.
-    """
-    def get_flow(coord):
-        poly = PolynomialFeatures(degree=degree)
-        coord_ = poly.fit_transform(coord)
-        flow_on_coord = normalize(clf.predict(coord_), axis=1)
-        return flow_on_coord
-
-    return get_flow
-
-
 def isin_thickness(half_thickness, position, flow, neighbors):
     """
     The function returns the neighbors within a certain thickness.
@@ -311,82 +293,82 @@ def count_around_position_in_disk_kernel(position, coord, half_thickness, radius
             vectorize=True,
         ) # xr.apply_ufunc may be slow in this usage.
 
-    kernel_counts = apply_function_to_array_with_array(local_count_around_position(coord, half_thickness, radius), position, flow)
+    kernel_counts = morphotrack.track.apply_function_to_array_with_array(local_count_around_position(coord, half_thickness, radius), position, flow)
     if fillna:
         kernel_counts = kernel_counts.fillna(0)
 
     return kernel_counts
 
 
-def fetch_value_in_position(xarr, arr):
-    """
-
-    """
-    def fetch_value_in_array(array):
-        def f(index):
-            a = morphotrack.track.fetch_value_in_range(array, index, return_inloc=False)
-            return a
-
-        return f
-
-    return apply_function_to_position(fetch_value_in_array(arr), xarr)
-
-
-def apply_function_to_position(func, arr1, *args, **kwargs):
-    """
-    Arguments
-        func (function): function returns flow from coordinates
-    Return:
-        xarray DataArray: index of tracks, time, and space
-    """
-    values = arr1.copy()
-    values = values.stack(pos=['time', 'track'])
-    selection = ~np.isnan(values.data.T).any(axis=1)
-    values_selected = values.isel(pos=selection)
-    new_values = func(values_selected.data.T, *args, **kwargs)
-
-    if new_values.ndim < 2:
-        new_values = new_values[:, np.newaxis]
-
-    new_values = xr.DataArray(new_values,
-                              coords={'pos': values_selected.coords['pos'],
-                                      'space': np.arange(new_values.shape[-1])},
-                              dims=['pos', 'space']
-                              )
-
-    return new_values.unstack().T.squeeze()
-
-
-def apply_function_to_array_with_array(func, arr1, arr2, *args, **kwargs):
-    """
-    Arguments
-        func (function): function returns flow from coordinates
-        arrs (xarray): the array with shared coordinates with position
-    Return:
-        xarray DataArray: index of tracks, time, and space
-    """
-    values = arr1.copy()
-    values = values.stack(pos=['time', 'track'])
-    selection = ~np.isnan(values.data.T).any(axis=1)
-
-    values2 = arr2.stack(pos=['time', 'track'])
-    selection2 = ~np.isnan(values2.data.T).any(axis=1)
-
-    selection = selection & selection2
-
-    values_selected = values.isel(pos=selection)
-    values2_selected = values2.isel(pos=selection)
-
-    new_values = func(values_selected.data.T, values2_selected.data.T, *args, **kwargs)
-
-    if new_values.ndim < 2:
-        new_values = new_values[:, np.newaxis]
-
-    new_values = xr.DataArray(new_values,
-                              coords={'pos': values_selected.coords['pos'],
-                                      'space': np.arange(new_values.shape[-1])},
-                              dims=['pos', 'space']
-                              )
-
-    return new_values.unstack().T.squeeze()
+# def fetch_value_in_position(xarr, arr):
+#     """
+#
+#     """
+#     def fetch_value_in_array(array):
+#         def f(index):
+#             a = morphotrack.track.fetch_value_in_range(array, index, return_inloc=False)
+#             return a
+#
+#         return f
+#
+#     return apply_function_to_position(fetch_value_in_array(arr), xarr)
+#
+#
+# def apply_function_to_position(func, arr1, *args, **kwargs):
+#     """
+#     Arguments
+#         func (function): function returns flow from coordinates
+#     Return:
+#         xarray DataArray: index of tracks, time, and space
+#     """
+#     values = arr1.copy()
+#     values = values.stack(pos=['time', 'track'])
+#     selection = ~np.isnan(values.data.T).any(axis=1)
+#     values_selected = values.isel(pos=selection)
+#     new_values = func(values_selected.data.T, *args, **kwargs)
+#
+#     if new_values.ndim < 2:
+#         new_values = new_values[:, np.newaxis]
+#
+#     new_values = xr.DataArray(new_values,
+#                               coords={'pos': values_selected.coords['pos'],
+#                                       'space': np.arange(new_values.shape[-1])},
+#                               dims=['pos', 'space']
+#                               )
+#
+#     return new_values.unstack().T.squeeze()
+#
+#
+# def apply_function_to_array_with_array(func, arr1, arr2, *args, **kwargs):
+#     """
+#     Arguments
+#         func (function): function returns flow from coordinates
+#         arrs (xarray): the array with shared coordinates with position
+#     Return:
+#         xarray DataArray: index of tracks, time, and space
+#     """
+#     values = arr1.copy()
+#     values = values.stack(pos=['time', 'track'])
+#     selection = ~np.isnan(values.data.T).any(axis=1)
+#
+#     values2 = arr2.stack(pos=['time', 'track'])
+#     selection2 = ~np.isnan(values2.data.T).any(axis=1)
+#
+#     selection = selection & selection2
+#
+#     values_selected = values.isel(pos=selection)
+#     values2_selected = values2.isel(pos=selection)
+#
+#     new_values = func(values_selected.data.T, values2_selected.data.T, *args, **kwargs)
+#
+#     if new_values.ndim < 2:
+#         new_values = new_values[:, np.newaxis]
+#
+#     new_values = xr.DataArray(new_values,
+#                               coords={'pos': values_selected.coords['pos'],
+#                                       'space': np.arange(new_values.shape[-1])},
+#                               dims=['pos', 'space']
+#                               )
+#
+#     return new_values.unstack().T.squeeze()
 

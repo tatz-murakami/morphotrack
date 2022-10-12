@@ -114,6 +114,95 @@ def measure_travelled_distance(array):  # Cumulative distance. Distance from poi
     return travelled_distance
 
 
+def fetch_value_in_position(xarr, arr):
+    """
+
+    """
+    def fetch_value_in_array(array):
+        def f(index):
+            a = morphotrack.track.fetch_value_in_range(array, index, return_inloc=False)
+            return a
+
+        return f
+
+    return apply_function_to_position(fetch_value_in_array(arr), xarr)
+
+
+def find_region(xarr, arr, extract_largest=False):
+    """
+    Arguments:
+        xarr (xarray);
+        arr (ndarray): binary image of the segmented region (e.g. segmented white matter)
+        extract_largest (bool): if True, extract only the largest segment
+    """
+    region_pos = fetch_value_in_position(xarr, arr)
+    region_pos = region_pos.astype(float).fillna(0)
+    if extract_largest:
+        region_pos.data = np.apply_along_axis(
+            lambda a: morphotrack.binary.extract_largest_object_from_binary(a, np.ones(3)), axis=1, arr=region_pos.data)
+
+    return region_pos
+
+
+def apply_function_to_position(func, arr1, *args, **kwargs):
+    """
+    Arguments
+        func (function): function returns flow from coordinates
+    Return:
+        xarray DataArray: index of tracks, time, and space
+    """
+    values = arr1.copy()
+    values = values.stack(pos=['time', 'track'])
+    selection = ~np.isnan(values.data.T).any(axis=1)
+    values_selected = values.isel(pos=selection)
+    new_values = func(values_selected.data.T, *args, **kwargs)
+
+    if new_values.ndim < 2:
+        new_values = new_values[:, np.newaxis]
+
+    new_values = xr.DataArray(new_values,
+                              coords={'pos': values_selected.coords['pos'],
+                                      'space': np.arange(new_values.shape[-1])},
+                              dims=['pos', 'space']
+                              )
+
+    return new_values.unstack().T.squeeze()
+
+
+def apply_function_to_array_with_array(func, arr1, arr2, *args, **kwargs):
+    """
+    Arguments
+        func (function): function returns flow from coordinates
+        arrs (xarray): the array with shared coordinates with position
+    Return:
+        xarray DataArray: index of tracks, time, and space
+    """
+    values = arr1.copy()
+    values = values.stack(pos=['time', 'track'])
+    selection = ~np.isnan(values.data.T).any(axis=1)
+
+    values2 = arr2.stack(pos=['time', 'track'])
+    selection2 = ~np.isnan(values2.data.T).any(axis=1)
+
+    selection = selection & selection2
+
+    values_selected = values.isel(pos=selection)
+    values2_selected = values2.isel(pos=selection)
+
+    new_values = func(values_selected.data.T, values2_selected.data.T, *args, **kwargs)
+
+    if new_values.ndim < 2:
+        new_values = new_values[:, np.newaxis]
+
+    new_values = xr.DataArray(new_values,
+                              coords={'pos': values_selected.coords['pos'],
+                                      'space': np.arange(new_values.shape[-1])},
+                              dims=['pos', 'space']
+                              )
+
+    return new_values.unstack().T.squeeze()
+
+
 class FieldTracker:
     def __init__(self, model, seeds=None):
         """

@@ -89,3 +89,16 @@ def non_linear_align_1d(arr1, arr2, pre_linear_alignment=True):
 
     return arr2_nonlinear_warped, arg_composite
 
+
+def filter_signal(signal, threshold=1e3):
+    fourier = np.fft.rfft(signal)
+    frequencies = np.fft.rfftfreq(signal.size, d=20e-3/signal.size)
+    fourier[frequencies > threshold] = 0
+
+    fft_filtered_signal = np.fft.irfft(fourier)
+    # pad to original size
+    if fft_filtered_signal.size < signal.size:
+        fft_filtered_signal = np.append(fft_filtered_signal,[fft_filtered_signal[-1]]*(signal.size-fft_filtered_signal.size))
+
+    return fft_filtered_signal
+

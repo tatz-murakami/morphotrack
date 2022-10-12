@@ -4,7 +4,8 @@ from skimage.morphology import skeletonize
 from skimage.filters import threshold_otsu
 from scipy import ndimage as ndi
 from scipy import spatial
-from sklearn.preprocessing import normalize
+from sklearn.preprocessing import normalize, PolynomialFeatures
+from sklearn import linear_model
 import ray
 
 
@@ -217,3 +218,40 @@ def remove_dissimilar_vectors(vec1, vec2, threshold='otsu'):
     keep = (dots >= thresh)
 
     return keep
+
+
+def polynomial_fitting(position, values, degree=5):
+    """
+    Arguments:
+        position (ndarray): positions of the points
+        values (ndarray): target values
+        degree (int): degree of polynomial. Overfitting may happen at the edge if degree is too high
+    """
+    poly = PolynomialFeatures(degree=degree)
+    idx_ = poly.fit_transform(position)
+
+    reg = linear_model.LinearRegression(fit_intercept=True)
+    reg.fit(idx_, values)  # Fit the model
+    reg.degree = degree  # save information for polynomial degree for later use
+
+    return reg
+
+
+def flow_to_normflow(reg):
+    """
+    The function returns the function to get normalized flow on given coordinates.
+    Arguments:
+        reg (linear_model.LinearRegression): the polynomial model
+    Returns:
+        function: function to get flow on given coordinates.
+    """
+
+    def norm_flow(coord):
+        poly = PolynomialFeatures(degree=reg.degree)
+        coord_ = poly.fit_transform(coord)
+        normflow_on_coord = normalize(reg.predict(coord_), axis=1)
+        return normflow_on_coord
+
+    return norm_flow
+
+
