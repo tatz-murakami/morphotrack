@@ -26,7 +26,7 @@ For 3, CNN-based segmentation tools (e.g. [cellpose](https://github.com/MouseLan
 
 ### Installing python packages
 ```
-pip install -r requirements.txt
+conda env create -f environment.yml
 ```
 
 
