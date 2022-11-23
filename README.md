@@ -2,7 +2,8 @@
 
 Reconstruct morphogenic tracks.
 Relevant paper: 
-> Murakami et al., 2022
+> Murakami and Heintz. Multiplexed and scalable cellular phenotyping toward the standardized three-dimensional human neuroanatomy. bioRxiv, 2022
+
 
 ### Software prerequisites 
 
@@ -30,5 +31,5 @@ conda env create -f environment.yml
 ```
 
 
-## Tutorials
+### Usages
 See the ipython notebooks.
