@@ -70,8 +70,51 @@ def guide_vector_generator_from_binaries(binary1, binary2):
     return guide_vector
 
 
+def get_neighbor_vectors(positions, reference_vectors, k=27, return_image=False):
+    """
+    From point cloud, calculate a vector at each point by looking around k nearest neighors and how they are aligned. 
+    This will return the overall direction of point clouds that forms skeltonized fiber.
+    Arguments:
+        positions (ndarray): Each row indicates point. 
+        reference_vectors (ndarray): Reference vector for each position. It should be same size as positions. 
+            It can be a single vector. In that case, global re-orientation of the calculated vector will be applied.
+    Return:
+        local_vectors (ndarray): The local orientation vectors. It should be same size as positions.
+    """
+    
+    kdtree = spatial.KDTree(positions)
+    local_vectors = []
+    
+    flag = (reference_vectors.ndim == 2)
+
+    for i, pos in enumerate(positions.tolist()):
+        # Extract vectors from k-nearest neighbors.
+        d, neighbors = kdtree.query(pos, k)
+        neighbors = neighbors[d != 0]
+        vectors_from_neighbors = normalize(positions[neighbors, :] - pos,
+                                           axis=1)  # Normalize to equalize the weights
+        if flag:
+            local_vector = np.mean(align_vector_sign(vectors_from_neighbors, reference_vectors[i,:]),
+                                  axis=0)  # Use arithmetic mean.
+        else:
+            local_vector = np.mean(align_vector_sign(vectors_from_neighbors, reference_vectors),
+                                  axis=0)  # Use arithmetic mean.
+        local_vector = normalize(local_vector.reshape(-1, 1), axis=0).ravel()
+        local_vectors.append(local_vector)
+            
+
+    if not return_image:
+        return np.array(local_vectors)
+    else:
+        vec_img = np.zeros(tuple(positions.astype(int).max(axis=0)+1) + (positions.shape[-1],))
+        vec_img[tuple(positions.T.astype(int))] = local_vectors
+
+        return np.array(local_vectors), vec_img 
+    
+    
 def get_vectors_from_skeleton(binary, guide_vector, k=27, return_image=False):
     """
+    DEPRECATED.
     Generate vectors from skeletonized binary image.
     Arguments:
          binary (ndarray): binary skeletonized image

@@ -306,6 +306,11 @@ def count_around_position_in_disk_kernel(position, coord, half_thickness, radius
     return kernel_counts
 
 
+def find_k_nearest_neighbor(position, reference_position, k=1):
+    kdtree = spatial.KDTree(reference_position)
+    d, neighbors = kdtree.query(position, k)
+    
+    return d, neighbors
 # def fetch_value_in_position(xarr, arr):
 #     """
 #
