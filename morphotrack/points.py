@@ -206,11 +206,18 @@ def get_local_flux(positions, vector_field, radius, dim=3, n_points=8):
     return local_flux
 
 
-def face_selection(seeds, normals, flow_on_seeds, n_clusters=6, cluster_selection='min'):
+def face_selection(seeds, normals, flow_on_seeds, normalization=True, n_clusters=6, cluster_selection='min'):
     """
     Select the seeds on the surface of interest.
+        seeds (ndarray): the position of the vertex
+        normals (ndarray): the normal vector on the seed
+        flow_on_seeds (ndarray): another vector that indicates flow of artery on the seed. All seeds, normals and flow_on_seeds should have same size.
+        normalization (bool): If true, normalize the size of vectors (normals and flow_on_seeds) to be one.
     """
     # Calculate dot product of normal vector and flows
+    if normalization:
+        normals = normalize(normals, axis=1, norm='l2')
+        flow_on_seeds = normalize(flow_on_seeds, axis=1, norm='l2')
     seeds_dot_product = np.sum(normals*flow_on_seeds, axis=1) # This will return the dot product.
 
     # Start clusterings
@@ -224,8 +231,7 @@ def face_selection(seeds, normals, flow_on_seeds, n_clusters=6, cluster_selectio
     elif cluster_selection=='max':
         cluster_of_interest = np.argmax(kmeans.cluster_centers_[:,-1])
     else:
-        print("error")
-        return None
+        return kmeans.labels_
 
     return kmeans.labels_==cluster_of_interest
 
