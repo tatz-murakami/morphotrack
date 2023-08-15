@@ -32,6 +32,38 @@ def fill_value_in_range(array, index_array, value=255.):
     return array
 
 
+def create_image_from_position_and_values(positions, values, size=None, default_value=0):
+    """
+    Create an image array that is filled with values on positions. 
+    Arguments:
+        positions (ndarray): positions where values will be filled.
+        values (ndarray): The row size of the values and the row size of the positions should be the same. The values can be a vector.
+        size (tuple): The size of the image. The dimension of the values will be added to the last dimension of the image followed after the dimension indicated in the size. 
+    Return:
+        img (ndarray): The last dimension is the same as columns of the values.  
+    """
+    if type(values) == (int or float):
+        if size is None:
+            img = np.full(tuple(positions.astype(int).max(axis=0)+1), default_value, dtype=float)
+        else:
+            img = np.full(size, default_value, dtype=float)
+        
+        img[tuple(positions.T.astype(int))] = values
+        
+    else:
+        if values.ndim == 1:
+            values = values[:,np.newaxis]
+
+        if size is None:
+            img = np.full(tuple(positions.astype(int).max(axis=0)+1)+(values.shape[-1],), default_value, dtype=float)
+        else:
+            img = np.full(size + (values.shape[-1],), default_value, dtype=float)
+
+        img[tuple(positions.T.astype(int))] = values
+    
+    return img
+
+
 def visualize_in_original_space(arr_pos, arr_val, shape=None):
     """
     Arguments

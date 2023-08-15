@@ -311,6 +311,30 @@ def find_k_nearest_neighbor(position, reference_position, k=1):
     d, neighbors = kdtree.query(position, k)
     
     return d, neighbors
+
+
+def broadcast_from_source(target_positions, source_positions, source_values):
+    """
+    Broadcast the values on the source positions to target positions. 
+    A position in target positions will find the nearest neighbor source position, and take the values on the source position
+    Arguments
+        target_positions (ndarray):
+        source_positions (ndarray):
+        source_values (ndarray): the values can be a vector for a source position. The number of row should be the same as that of source_positions.
+            If 1D array was given, it will get converted to 2D.
+    Return
+        target_values (ndarray): The array with the same number of row as target_position and same number of column as that of source_values.
+    """
+    if source_values.ndim == 1:
+        source_values = source_values[:,np.newaxis]
+        
+    kdtree = spatial.KDTree(source_positions)
+    _, nn = kdtree.query(target_positions,1)
+    
+    return source_values[nn]
+
+
+
 # def fetch_value_in_position(xarr, arr):
 #     """
 #

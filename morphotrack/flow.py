@@ -151,7 +151,7 @@ def get_vectors_from_skeleton(binary, guide_vector, k=27, return_image=False):
 
 def get_vectors_from_vessel(binary, guide_vector, threshold=10, k=27, return_image=False):
     """
-
+    DEPRECATED.
     """
     print('start skeletonization')
     skeletonized = skeleton(binary, threshold=threshold)
