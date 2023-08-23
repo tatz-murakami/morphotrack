@@ -16,13 +16,22 @@ def align_vector_sign(vectors, guide_vector=None):
     """
     if guide_vector is None:
         guide_vector = normalize(np.median(vectors,axis=0)[:,np.newaxis],axis=0).ravel()
-    aligned_vectors = np.where(
-        np.repeat(np.expand_dims(np.matmul(vectors, guide_vector) >= 0, axis=1), guide_vector.size, axis=1),
-        vectors,
-        -vectors
-    )
+        
+    if guide_vector.ndim ==1:
+        aligned_vectors = np.where(
+            np.repeat(np.expand_dims(np.matmul(vectors, guide_vector) >= 0, axis=1), guide_vector.size, axis=1),
+            vectors,
+            -vectors
+        )
+    else:
+        if vectors.shape == guide_vector.shape:
+            sign = ( (vectors * guide_vector).sum(axis=1) >= 0 )
+            aligned_vectors = np.where(
+                np.repeat(np.expand_dims(sign, axis=1), guide_vector.shape[-1], axis=1),
+                vectors,
+                -vectors
+            )
     return aligned_vectors
-
 
 def skeleton(binary, threshold=10):
     """

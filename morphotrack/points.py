@@ -288,7 +288,7 @@ def count_around_position_in_disk_kernel(position, coord, half_thickness, radius
         flow = position.copy()
         flow_temp = flow.diff(dim='time')
 
-        flow.loc[dict(time=slice(1, 500))] = flow_temp
+        flow.loc[dict(time=slice(1, flow.time[-1]+1))] = flow_temp
         flow.loc[dict(time=0)] = flow.sel(time=1)
         # normalize flow
         flow = xr.apply_ufunc(

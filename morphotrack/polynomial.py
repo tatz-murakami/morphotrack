@@ -29,7 +29,7 @@ def generate_coefficient_matrix(powers, coefficients, squeeze=True):
             if the array is 2D, the function will return the matrix with the size of the last dimension is L.
         squeeze (bool): 
     Return
-        c (ndarray): The first deminsion is L. The last two dimension is the same as c in numpy.polynomial.polynomial.polyval2d.
+        c (ndarray): The first deminsion is L. The last two dimension is the same as c in numpy.polynomial.polynomial.polyvalNd.
     """
     ndim = coefficients.ndim
     if ndim == 1:
@@ -49,3 +49,25 @@ def generate_coefficient_matrix(powers, coefficients, squeeze=True):
         
     return c
 
+
+def calculate_polynomial_curve_normal(polynomial_pipeline, in_coordinate, regression_model='linearregression'):
+    """
+    """
+    out_dim = polynomial_pipeline.named_steps[regression_model].coef_.shape[0]
+    in_dim = 2 # only supports 2 dimensional input
+
+    # get the values of partial derivative on points on UV
+    dfdu = np.zeros((in_coordinate.shape[0],out_dim),dtype=float)
+    dfdv = np.zeros((in_coordinate.shape[0],out_dim),dtype=float)
+
+    for i in range(out_dim):
+        coeff = generate_coefficient_matrix(
+            polynomial_pipeline.named_steps['polynomialfeatures'].powers_, 
+            polynomial_pipeline.named_steps[regression_model].coef_[i,:]
+        )
+        deriv_coeff = partial_derivative_multivariate_polynomial(coeff)
+
+        dfdu[:,i] = np.polynomial.polynomial.polyval2d(in_coordinate[:,0], in_coordinate[:,1], deriv_coeff[0,...])
+        dfdv[:,i] = np.polynomial.polynomial.polyval2d(in_coordinate[:,0], in_coordinate[:,1], deriv_coeff[1,...])
+        
+    return np.cross(dfdu,dfdv)    
