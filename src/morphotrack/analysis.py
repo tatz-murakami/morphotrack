@@ -2,6 +2,29 @@ import torch
 import numpy as np
 
 
+def tracks_to_vectors(points, track_ids, dense=True):
+    """
+    Per-track local displacement vectors from ordered track points.
+
+    points:    (N, D) array of ordered points, concatenated over tracks
+    track_ids: (N,) grouping label per point
+    dense:     True -> every segment; False -> first and last segment only
+
+    Returns (positions, vectors), each (M, D).
+    """
+    positions, vectors = [], []
+    for i in np.unique(track_ids):
+        p = points[track_ids == i]
+        v = np.diff(p, axis=0)
+        if dense:
+            positions.append(p[1:])
+            vectors.append(v)
+        else:
+            positions.append(p[[0, -2]])
+            vectors.append(v[[0, -1]])
+    return np.vstack(positions), np.vstack(vectors)
+
+
 def rk4_step(X, dt, v_field):
     # RK4 Integration
     k1 = v_field(X)
