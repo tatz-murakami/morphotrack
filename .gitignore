@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environments
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Data (keep data/README.md tracked)
+data/*
+!data/README.md
+
+# OS
+.DS_Store
