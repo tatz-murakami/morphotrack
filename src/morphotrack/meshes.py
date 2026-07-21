@@ -3,6 +3,43 @@ from scipy.spatial import KDTree
 import scipy.sparse as sp
 from scipy.sparse.csgraph import shortest_path
 from sklearn.manifold import MDS
+import trimesh
+import pyvista as pv
+import pyacvd
+
+
+def remesh_uniform(mesh, target_area, subdivide=3):
+    """
+    Uniformly remesh a triangular mesh so each face covers roughly
+    target_area (in squared mesh units), using ACVD clustering.
+
+    Parameters:
+        mesh: trimesh.Trimesh to remesh
+        target_area: desired area per face; sets the target vertex count
+        subdivide: subdivisions applied before clustering, so the
+                   clusterer has enough points to work with
+
+    Returns:
+        trimesh.Trimesh with approximately uniform face areas
+    """
+    # faces ~ area / target_area; verts ~ faces / 2
+    n_target = int((mesh.area // target_area) // 2)
+
+    # trimesh -> pyvista
+    faces_pv = np.hstack(
+        [np.full((len(mesh.faces), 1), 3, dtype=np.int64), mesh.faces]
+    ).ravel()
+    pmesh = pv.PolyData(mesh.vertices, faces_pv)
+
+    # uniform remeshing
+    clus = pyacvd.Clustering(pmesh)
+    clus.subdivide(subdivide)
+    clus.cluster(n_target)
+    remesh = clus.create_mesh()
+
+    # pyvista -> trimesh (drop the leading "3" per face)
+    faces_tm = remesh.faces.reshape(-1, 4)[:, 1:]
+    return trimesh.Trimesh(remesh.points, faces_tm, process=False)
 
 
 def build_weighted_mesh_graph(vertices, faces, values, exponent=0.5):
