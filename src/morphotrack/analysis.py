@@ -54,57 +54,6 @@ def rk4_step_batched(X, dt, v_field):
     return X + (dt.unsqueeze(1) / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
 
 
-# def rk4_step_batched2(X, dt, v_field):
-#     # X: (B, N, D)
-#     # dt: (B, N) - individual time steps for each point in each batch
-
-#     # Flatten X to pass into v_field: (B*N, D)
-#     B, N, D = X.shape
-#     X_flat = X.view(B * N, D)
-
-#     k1 = v_field(X_flat).view(B, N, D)
-#     k2 = v_field((X + 0.5 * dt.unsqueeze(-1) * k1).view(B * N, D)).view(B, N, D)
-#     k3 = v_field((X + 0.5 * dt.unsqueeze(-1) * k2).view(B * N, D)).view(B, N, D)
-#     k4 = v_field((X + dt.unsqueeze(-1) * k3).view(B * N, D)).view(B, N, D)
-
-#     delta = (dt.unsqueeze(-1) / 6.0) * (k1 + 2*k2 + 2*k3 + k4)
-#     return X + delta
-
-
-# def integrate_rk4_adaptive_dt2(X0, v_field, dt_model, steps=10, return_dt_history=False):
-#     """
-#     Batched RK4 integration with adaptive dt per sample.
-
-#     Args:
-#         X0: (B, N, D)
-#         v_field: velocity model
-#         dt_model: model that returns dt, should output (B, N)
-#         steps: number of integration steps
-#         return_dt_history: whether to return history of dt values
-
-#     Returns:
-#         traj: (B, steps+1, N, D)
-#         dt_history: (B, steps, N) if return_dt_history is True
-#     """
-#     B, N, D = X0.shape
-#     X = X0.clone()
-#     traj = [X]
-#     dt_history = []
-
-#     for _ in range(steps):
-#         dt = dt_model(X).view(B, N)  # dt: (B, N)
-#         dt_history.append(dt)
-#         X = rk4_step_batched2(X, dt, v_field)
-#         traj.append(X)
-
-#     traj = torch.stack(traj, dim=1)  # (B, steps+1, N, D)
-
-#     if return_dt_history:
-#         dt_history = torch.stack(dt_history, dim=1)  # (B, steps, N)
-#         return traj, dt_history
-
-#     return traj
-
 
 def calculate_intersection(trajectory, mesh):
     # Build segments: start and end of each segment
@@ -160,29 +109,3 @@ def calculate_intersection(trajectory, mesh):
             intersection_time = t0 + alpha  # Fractional time step
 
     return first_hit, intersection_time
-
-
-    
-    
-
-
-# def integrate_rk4_batched(X0, v_field, dt_list):
-#     """
-#     X0: (N, D) tensor of initial positions
-#     v_field: function taking (N, D) and returning (N, D)
-#     dt_list: (N, T) tensor of step sizes for each point (sum along dim=1 == 1.0)
-    
-#     Returns: (T+1, N, D) trajectory for each point over T steps
-#     """
-#     N, D = X0.shape
-#     T = dt_list.shape[1]
-
-#     X = X0.clone()
-#     traj = [X]
-
-#     for t in range(T):
-#         dt = dt_list[:, t]          # shape: (N,)
-#         X = rk4_step_batched(X, dt, v_field)
-#         traj.append(X)
-
-#     return torch.stack(traj, dim=0)  # shape: (T+1, N, D)
