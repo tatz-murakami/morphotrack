@@ -43,14 +43,14 @@ def build_mlp_layer(sizes, activation='ReLU', use_norm=False, use_residual=False
     
     
 
-class SimpleMLP2(nn.Module):
+class SimpleMLP(nn.Module):
     def __init__(self, 
                  output_dim=3,
                  hidden_sizes=[256, 128, 64],
                  use_norm=True,
                  use_residual=True,
                  activation_func='ReLU'):
-        super(SimpleMLP2, self).__init__()
+        super(SimpleMLP, self).__init__()
         self.net = build_mlp_layer(
             sizes=[3] + hidden_sizes + [output_dim],
             activation=activation_func,
@@ -61,31 +61,6 @@ class SimpleMLP2(nn.Module):
     def forward(self, x):
         return self.net(x)
     
-
-    
-
-# class MagnitudePredictor(nn.Module):
-#     def __init__(self, input_dim=3, hidden_sizes=[64, 32], use_norm=False, epsilon=1e-3):
-#         super().__init__()
-#         self.epsilon = epsilon
-
-#         layers = []
-#         in_dim = input_dim
-
-#         for h in hidden_sizes:
-#             layers.append(nn.Linear(in_dim, h))
-#             if use_norm:
-#                 layers.append(nn.LayerNorm(h))
-#             layers.append(nn.SiLU())
-#             in_dim = h
-
-#         self.net = nn.Sequential(*layers)
-#         self.output_layer = nn.Linear(in_dim, 1)
-
-#     def forward(self, x):
-#         h = self.net(x)
-#         alpha = F.softplus(self.output_layer(h)).squeeze(-1) + self.epsilon  # shape: (N,)
-#         return alpha
 
 
 class SpatialEncoder(nn.Module):
