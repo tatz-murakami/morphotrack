@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 
 
 class ResidualMLPBlock(nn.Module):
@@ -103,3 +104,16 @@ class LinearSpeedNet(nn.Module):
     def forward(self, uv):                       # uv: (M, 2) → r: (M,)
         z = self.encoder(uv)
         return torch.tanh(self.head(z).squeeze(-1))
+
+
+class NormalizedField:
+    def __init__(self, model, pos_min, pos_max):
+        self.model = model
+        self.pos_min = pos_min
+        self.pos_max = pos_max
+    def __call__(self, x):
+        x_norm = (x - self.pos_min) / (self.pos_max - self.pos_min)
+        return F.normalize(self.model(x_norm), p=2, dim=1)
+    def eval(self):
+        self.model.eval()
+        return self

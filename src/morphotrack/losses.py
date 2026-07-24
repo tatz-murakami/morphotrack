@@ -1,10 +1,5 @@
 import torch
 import torch.nn.functional as F
-
-
-
-
-
     
 
 def alignment_loss(vectors, references, norm_vector=True, norm_ref=False, mixed_orientation=False, return_vector=False, eps=1e-8):

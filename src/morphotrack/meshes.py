@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.spatial import KDTree
+from scipy.spatial import KDTree, cKDTree
 import scipy.sparse as sp
 from scipy.sparse.csgraph import shortest_path
 from sklearn.manifold import MDS
@@ -40,6 +40,37 @@ def remesh_uniform(mesh, target_area, subdivide=3):
     # pyvista -> trimesh (drop the leading "3" per face)
     faces_tm = remesh.faces.reshape(-1, 4)[:, 1:]
     return trimesh.Trimesh(remesh.points, faces_tm, process=False)
+
+
+def sample_points_between_surfaces(mesh_a, mesh_b, n_candidates, use_bbox=False):
+    tree_a = cKDTree(mesh_a.vertices)
+    tree_b = cKDTree(mesh_b.vertices)
+
+    all_verts = np.vstack([mesh_a.vertices, mesh_b.vertices])
+    bbox_min = all_verts.min(axis=0)
+    bbox_max = all_verts.max(axis=0)
+
+    candidates = np.random.uniform(bbox_min, bbox_max, size=(n_candidates, 3))
+
+    if use_bbox:
+        return candidates
+
+    _, idx_a = tree_a.query(candidates)
+    _, idx_b = tree_b.query(candidates)
+
+    closest_a = tree_a.data[idx_a]
+    closest_b = tree_b.data[idx_b]
+
+    vec_ab = closest_b - closest_a
+    vec_ac = candidates - closest_a
+
+    dot_ab = np.einsum('ij,ij->i', vec_ab, vec_ab)
+    dot_ac = np.einsum('ij,ij->i', vec_ab, vec_ac)
+
+    t = np.where(dot_ab > 1e-12, dot_ac / np.maximum(dot_ab, 1e-12), -1.0)
+    mask = (t > 0.0) & (t < 1.0)
+
+    return candidates[mask]
 
 
 def build_weighted_mesh_graph(vertices, faces, values, exponent=0.5):
